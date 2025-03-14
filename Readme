@@ -1,0 +1,33 @@
+Hipfort part :
+==============
+1)  compile hipfort:
+a) edit compile-hipfort.sh and change the path where to install hipfort
+b) run ./compile-hipfort.sh
+
+2) test the hipfort installation
+a) edit compile-test-hipfort.sh and modify ROOT_HIPFORT to the path where hipfort has been installed
+b) run ./compile-test-hipfort.sh
+c) edit job_hipfort.sh and modify the --account project
+d) run sbatch job_hipfort.sh
+e) check-out the output typing tail slurm-*.out which should give
+-- Running test 'vecadd' (Fortran 2008 interfaces)- device: AMD Instinct MI250X -  PASSED!
+
+Notice that in compile-test-hipfort.sh, you can see the needed flags for compiling cpp and f90 files and for linking object files.
+
+Elmer part :
+============
+1) kernel file : kernelPoisson.cpp
+compile it typing
+hipcc -fno-gpu-rdc -fPIC --offload-arch=gfx90a -c kernelPoisson.cpp
+
+2) fortran interface : fortran_hip_interface.F90
+compile it typing 
+gfortran-13 -cpp -I$ROOT_HIPFORT/include/hipfort/amdgcn -c fortran_hip_interface.F90
+
+3) Poisson solver modified with hip kernel call : Poisson.F90
+compile it typing
+gfortran-13 -cpp -I$ROOT_HIPFORT/include/hipfort/amdgcn -c Poisson.F90
+
+final link : 
+OBJS=*.o
+gfortran-13 $OBJS -L$ROOT_HIPFORT/lib -lhipfort-amdgcn -L$ROCM_PATH/lib -lamdhip64 -Wl,-rpath=$ROCM_PATH/lib  -lstdc++ -o main_bin
