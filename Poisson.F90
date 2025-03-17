@@ -7,7 +7,7 @@ CONTAINS
 SUBROUTINE get_crs_inds(val_inds, rows, cols, l2g, nd, elem)
     IMPLICIT NONE
 ! #ifndef NOGPU
-!$omp declare target
+!!$omp declare target
 ! #endif
 !------------------------------------------------------------------------------
     INTEGER, INTENT(IN) :: nd, rows(:), cols(:), l2g(:,:), elem
@@ -42,7 +42,7 @@ SUBROUTINE ModuleLocalMatrixVecSO( n, nd, nb, x, y, z, dim, refbasis, refdBasisd
 #endif
     IMPLICIT NONE
 ! #ifndef NOGPU
-!$omp declare target
+!!$omp declare target
 ! #endif
 
 
@@ -235,7 +235,7 @@ SUBROUTINE loop_over_active(active, elemdofs, max_nd, x, y, z, dim, refbasis, re
 ! #endif
 
 ! #ifndef NOGPU
-    timing = omp_get_wtime() 
+    !timing = omp_get_wtime() 
 ! #endif
 
   write(ERROR_UNIT,'(A)') '=== TARGET DEBUG START ==='
@@ -243,13 +243,13 @@ SUBROUTINE loop_over_active(active, elemdofs, max_nd, x, y, z, dim, refbasis, re
 #ifndef NOGPU
 
 #ifdef NO_THREAD_LIMIT
-  !$omp target teams distribute parallel do simd
+  !!$omp target teams distribute parallel do simd
 #else
-  !$omp target teams distribute parallel do simd num_teams(220) thread_limit(64)
+  !!$omp target teams distribute parallel do simd num_teams(220) thread_limit(64)
 #endif
 
 #else
-!$omp parallel do simd
+!!$omp parallel do simd
 #endif
   do elem=1, active
     n=elemdofs(elem,1)
@@ -265,9 +265,9 @@ SUBROUTINE loop_over_active(active, elemdofs, max_nd, x, y, z, dim, refbasis, re
 
   end do
 #ifndef NOGPU
-  !$omp end target teams distribute parallel do simd
+  !!$omp end target teams distribute parallel do simd
 #else
-  !$omp end parallel do simd
+  !!$omp end parallel do simd
 #endif
   !!$omp end target data
   write(ERROR_UNIT,'(A)') '=== TARGET DEBUG END ==='
@@ -288,20 +288,20 @@ SUBROUTINE loop_over_active(active, elemdofs, max_nd, x, y, z, dim, refbasis, re
     !nd=elemdofs(elem,2)
     do i=1, nd
       do j = 1, nd
-!$omp parallel do simd
+!!$omp parallel do simd
         do elem=1, active
           associate(colind => val_inds(elem, (i-1)*nd+j) )
             values(colind) = values(colind) + stiffs(elem, (i-1)*nd+j)
           end associate
         end do
-!$omp end parallel do simd
+!!$omp end parallel do simd
       end do
 
-      !$omp parallel do simd
+      !!$omp parallel do simd
       do elem=1, active
         rhs(l2g(elem, i)) = rhs(l2g(elem, i)) + forces(elem, i)
       end do
-      !$omp end parallel do simd
+      !!$omp end parallel do simd
     end do
 #endif
 
@@ -315,7 +315,7 @@ use Types, only: dp ! , nodes_t
 !use DefUtils
 implicit none
 ! #ifndef NOGPU
-!$omp declare target
+!!$omp declare target
 ! #endif
 !------------------------------------------------------------------------------
 INTEGER, intent(in) :: nDOFs, dim, nnodes, elem   !< Number of active nodes in element, dimension of space, 
@@ -433,7 +433,7 @@ end subroutine  myElementMetric
   PURE SUBROUTINE InvertMatrix3x3( G,GI,detG )
     use Types, only: dp
 ! #ifndef NOGPU
-    !$omp declare target
+    !!$omp declare target
 ! #endif
 !------------------------------------------------------------------------------
     REAL(KIND=dp), INTENT(IN) :: G(3,3)
@@ -462,7 +462,7 @@ end subroutine  myElementMetric
     USE Types, ONLY: dp, VECTOR_BLOCK_LENGTH, VECTOR_SMALL_THRESH
     IMPLICIT NONE
 ! #ifndef NOGPU
-    !$omp declare target 
+    !!$omp declare target 
 ! #endif
     INTEGER, INTENT(IN) :: m, n, dim
     REAL(KIND=dp) CONTIG, INTENT(IN) :: GradU(:,:,:), weight(:)
@@ -495,7 +495,7 @@ end subroutine  myElementMetric
   USE Types, ONLY: dp, VECTOR_BLOCK_LENGTH, VECTOR_SMALL_THRESH
     IMPLICIT NONE
 ! #ifndef NOGPU
-    !$omp declare target 
+    !!$omp declare target 
 ! #endif
 
     INTEGER, INTENT(IN) :: m, n
@@ -577,7 +577,8 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 #ifdef _OPENMP
   LOGICAL :: initial_device
 #endif
-  REAL(KIND=dp), ALLOCATABLE :: refBasis(:,:), refdBasisdx(:,:,:), prefBasis(:,:), prefdBasisdx(:,:,:), trefbasis(:,:)
+  REAL(KIND=dp), ALLOCATABLE :: refdBasisdx(:,:,:), prefBasis(:,:), refbasis(:,:)
+  REAL(KIND=dp), target,ALLOCATABLE :: trefBasis(:,:),  prefdBasisdx(:,:,:)
   TYPE(GaussIntegrationPoints_t) :: refIP
 
   type :: elem_ptr
@@ -593,7 +594,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
     !real(kind=dp), allocatable, target :: x(:,:), y(:,:), z(:,:)
   end type
 
-  TYPE(elem_list_t), allocatable :: elem_lists(:)
+  TYPE(elem_list_t), target, allocatable :: elem_lists(:)
 
   CHARACTER(*), PARAMETER :: Caller = 'AdvDiffSolver'
 
@@ -601,15 +602,15 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 
 ! Variables for hip kernel
 
-  INTEGER :: th_perblock = 256
+  INTEGER :: th_per_block = 256
   integer(c_size_t) ::  size_device
-  type(ctr_ptr) :: elemdofs_d = c_null_ptr, x_d = c_null_ptr, y_d = c_null_ptr, z_d = c_null_ptr
-  type(ctr_ptr) :: refbasis_d = c_null_ptr, prefdBasisdx_d = c_null_ptr, ips_d = c_null_ptr
-  type(ctr_ptr) :: l2g_d = c_null_ptr, values_d = c_null_ptr, rows_d = c_null_ptr
-  type(ctr_ptr) :: cols_d = c_null_ptr, rhs_d = c_null_ptr, dBasisdx_d = c_null_ptr
-  type(ctr_ptr) :: DetJ_d = c_null_ptr, STIFF_d = c_null_ptr, FORCE_d = c_null_ptr
-  type(ctr_ptr) :: DiffCoeff_d = c_null_ptr, SourceCoeff_d = c_null_ptr, LtoGMap_d = c_null_ptr
-  type(ctr_ptr) :: G_d = c_null_ptr, GI_d = c_null_ptr, dx_d = c_null_ptr, Metric_d = c_null_ptr
+  type(c_ptr) :: elemdofs_d = c_null_ptr, x_d = c_null_ptr, y_d = c_null_ptr, z_d = c_null_ptr
+  type(c_ptr) :: trefbasis_d = c_null_ptr, prefdBasisdx_d = c_null_ptr, ips_d = c_null_ptr
+  type(c_ptr) :: l2g_d = c_null_ptr, values_d = c_null_ptr, rows_d = c_null_ptr
+  type(c_ptr) :: cols_d = c_null_ptr, rhs_d = c_null_ptr, dBasisdx_d = c_null_ptr
+  type(c_ptr) :: DetJ_d = c_null_ptr, STIFF_d = c_null_ptr, FORCE_d = c_null_ptr
+  type(c_ptr) :: DiffCoeff_d = c_null_ptr, SourceCoeff_d = c_null_ptr, LtoGMap_d = c_null_ptr
+  type(c_ptr) :: G_d = c_null_ptr, GI_d = c_null_ptr, dx_d = c_null_ptr, Metric_d = c_null_ptr
   
 
   CALL Info(Caller,'------------------------------------------------')
@@ -630,7 +631,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 
 
 
-  !$ nthr = omp_get_max_threads()
+  !!$ nthr = omp_get_max_threads()
 
   ! Nonlinear iteration loop:
   !--------------------------
@@ -649,13 +650,13 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 
   coorddim = CoordinateSystemDimension()
 #ifndef NOGPU
-  !$omp target
+  !!$omp target
 #endif
 #ifdef _OPENMP
-  initial_device = omp_is_initial_device()
+  !initial_device = omp_is_initial_device()
 #endif
 #ifndef NOGPU
-  !$omp end target
+  !!$omp end target
 #endif
 #ifdef _OPENMP
 #ifndef NOGPU
@@ -784,97 +785,93 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
   CALL ResetTimer( Caller//'BulkAssembly' )
 #ifndef NOGPU
 
-!$omp target enter data map(to: elem_lists, elem_lists(1:ncolours), refbasis, prefdBasisdx, trefbasis(:,:))
-!$omp target enter data map(to: refbasis(1:ngp,1:nd), prefdBasisdx(1:nd,1:3,1:ngp)) 
-!$omp target enter data map(to: refip%u(1:ngp), refip%v(1:ngp), refip%w(1:ngp), refip, refip%u, refip%v, refip%w, refip%s) 
-!$omp target enter data map(to: refip%s(1:ngp))
+!!$omp target enter data map(to: elem_lists, elem_lists(1:ncolours), refbasis, prefdBasisdx, trefbasis(:,:))
+!!$omp target enter data map(to: refbasis(1:ngp,1:nd), prefdBasisdx(1:nd,1:3,1:ngp)) 
+!!$omp target enter data map(to: refip%u(1:ngp), refip%v(1:ngp), refip%w(1:ngp), refip, refip%u, refip%v, refip%w, refip%s) 
+!!$omp target enter data map(to: refip%s(1:ngp))
 
   DO col=1,nColours
     active = size(elem_lists(col) % elemdofs, 1)
 
-!$omp target enter data map(to: elem_lists(col) % elemdofs) 
-!$omp target enter data map(to: elem_lists(col) % elemdofs(:,:)) 
-!$omp target enter data map(to: elem_lists(col) % x(:, :)) 
-!$omp target enter data map(to: elem_lists(col) % y(:, :))
-!$omp target enter data map(to: elem_lists(col) % z(:, :))
-!$omp target enter data map(to: elem_lists(col) % l2g(:,:))
+!!$omp target enter data map(to: elem_lists(col) % elemdofs) 
+!!$omp target enter data map(to: elem_lists(col) % elemdofs(:,:)) 
+!!$omp target enter data map(to: elem_lists(col) % x(:, :)) 
+!!$omp target enter data map(to: elem_lists(col) % y(:, :))
+!!$omp target enter data map(to: elem_lists(col) % z(:, :))
+!!$omp target enter data map(to: elem_lists(col) % l2g(:,:))
   end do
 
 #endif
 
 #ifndef NOGPU
-  !$omp target enter data map(to:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
+  !!$omp target enter data map(to:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
 #endif
 
 global_stiff % values(:) = 0_dp
 
   size_device = nd*ngp*sizeof(trefBasis(1,1))
-  call hipCheck(hipMalloc(trefBasis_d, size_device)
+  call hipCheck(hipMalloc(trefBasis_d, size_device))
   call hipCheck(hipMemcpy(trefBasis_d, c_loc(trefBasis), size_device, hipMemcpyHostToDevice))
   size_device = nd*ngp*dim*sizeof(prefdBasisdx(1,1,1))
-  call hipCheck(hipMalloc(prefdBasisdx_d, size_device)
+  call hipCheck(hipMalloc(prefdBasisdx_d, size_device))
   call hipCheck(hipMemcpy(prefdBasisdx_d, c_loc(prefdBasisdx), size_device, hipMemcpyHostToDevice))
-  size_device = ngp*sizeof(refip%s(1)
-  call hipCheck(hipMalloc(ips_d, size_device)
+  size_device = ngp*sizeof(refip%s(1))
+  call hipCheck(hipMalloc(ips_d, size_device))
   call hipCheck(hipMemcpy(ips_d, c_loc(refip%s), size_device, hipMemcpyHostToDevice))
   size_device = size(global_stiff % values)*sizeof(global_stiff % values(1))
-  call hipCheck(hipMalloc(values_d, size_device)
+  call hipCheck(hipMalloc(values_d, size_device))
   call hipCheck(hipMemcpy(values_d, c_loc(global_stiff % values), size_device, hipMemcpyHostToDevice))
   size_device = size(global_stiff % cols)*sizeof(global_stiff % cols(1))
-  call hipCheck(hipMalloc(cols_d, size_device)
+  call hipCheck(hipMalloc(cols_d, size_device))
   call hipCheck(hipMemcpy(cols_d, c_loc(global_stiff % cols), size_device, hipMemcpyHostToDevice))
   size_device = size(global_stiff % rows)*sizeof(global_stiff % rows(1))
-  call hipCheck(hipMalloc(rows_d, size_device)
+  call hipCheck(hipMalloc(rows_d, size_device))
   call hipCheck(hipMemcpy(rows_d, c_loc(global_stiff % rows), size_device, hipMemcpyHostToDevice))
   size_device = size(global_stiff % rhs)*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(rhs_d, size_device)
+  call hipCheck(hipMalloc(rhs_d, size_device))
   call hipCheck(hipMemcpy(rhs_d, c_loc(global_stiff % rhs), size_device, hipMemcpyHostToDevice))
-  size_device = size(ngp*nd*dim*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(dBasisdx_d, size_device)
-  size_device = size(ngp*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(DetJ_d, size_device)
-  size_device = size(nd*nd*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(STIFF_D, size_device)
-  size_device = size(nd*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(FORCE_d, size_device)
-  size_device = size(ngp*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(DiffCoeff_d, size_device)
-  size_device = size(ngp*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(SourceCoeff_d, size_device)
-  size_device = size(dim*dim*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(LtoGMap_d, size_device)
-  size_device = size(dim*dim*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(G_d, size_device)
-  size_device = size(dim*dim*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(GI_d, size_device)
-  size_device = size(dim*dim*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(dx_d, size_device)
-  size_device = size(dim*dim*th_per_block*sizeof(global_stiff % rhs(1))
-  call hipCheck(hipMalloc(Metric_d, size_device)
+  size_device = ngp*nd*dim*th_per_block*sizeof(global_stiff % rhs(1))
+  call hipCheck(hipMalloc(dBasisdx_d, size_device))
+  size_device = ngp*th_per_block*sizeof(global_stiff % rhs(1))
+  call hipCheck(hipMalloc(DetJ_d, size_device))
+  size_device = nd*nd*th_per_block*sizeof(global_stiff % rhs(1))
+  call hipCheck(hipMalloc(STIFF_D, size_device))
+  size_device = nd*th_per_block*sizeof(global_stiff % rhs(1))
+  call hipCheck(hipMalloc(FORCE_d, size_device))
+  size_device = ngp*th_per_block*sizeof(global_stiff % rhs(1))
+  call hipCheck(hipMalloc(DiffCoeff_d, size_device))
+  size_device = ngp*th_per_block*sizeof(global_stiff % rhs(1))
+  call hipCheck(hipMalloc(SourceCoeff_d, size_device))
+  size_device = dim*dim*th_per_block*sizeof(global_stiff % rhs(1))
+  call hipCheck(hipMalloc(LtoGMap_d, size_device))
+  call hipCheck(hipMalloc(G_d, size_device))
+  call hipCheck(hipMalloc(GI_d, size_device))
+  call hipCheck(hipMalloc(dx_d, size_device))
+  call hipCheck(hipMalloc(Metric_d, size_device))
 
   DO col=1,nColours
 
     active = size(elem_lists(col) % elemdofs, 1)
     size_device = dim*active*sizeof(elem_lists(col) % elemdofs(1,1))
-    call hipCheck(hipMalloc(elemdofs_d, size_device)
+    call hipCheck(hipMalloc(elemdofs_d, size_device))
     call hipCheck(hipMemcpy(elemdofs_d, c_loc(elem_lists(col) % elemdofs), size_device, hipMemcpyHostToDevice))
     size_device = active*MaxNumNodes*sizeof(elem_lists(col) % x(1,1))
-    call hipCheck(hipMalloc(x_d, size_device)
+    call hipCheck(hipMalloc(x_d, size_device))
     call hipCheck(hipMemcpy(x_d, c_loc(elem_lists(col) % x), size_device, hipMemcpyHostToDevice))
-    call hipCheck(hipMalloc(y_d, size_device)
+    call hipCheck(hipMalloc(y_d, size_device))
     call hipCheck(hipMemcpy(y_d, c_loc(elem_lists(col) % y), size_device, hipMemcpyHostToDevice))
-    call hipCheck(hipMalloc(z_d, size_device)
+    call hipCheck(hipMalloc(z_d, size_device))
     call hipCheck(hipMemcpy(z_d, c_loc(elem_lists(col) % z), size_device, hipMemcpyHostToDevice))
     size_device = active*MaxNumDOFs*sizeof(elem_lists(col) % l2g(1,1))
-    call hipCheck(hipMalloc(l2g_d, size_device)
+    call hipCheck(hipMalloc(l2g_d, size_device))
     call hipCheck(hipMemcpy(l2g_d, c_loc(elem_lists(col) % l2g), size_device, hipMemcpyHostToDevice))
 
-    Call  launchModuleLocalMatrixVecSO(active, elemdofs_d, x_d, y_d, z_d, dim, refbasis_d,   &
-                                       refdBasisdx_d, ips_d, ngp, l2g_d, values_d, cols_d,   &
+    Call  launchModuleLocalMatrixVecSO(active, elemdofs_d, x_d, y_d, z_d, dim, trefbasis_d,  &
+                                       prefdBasisdx_d, ips_d, ngp, l2g_d, values_d, cols_d,  &
                                        rows_d, rhs_d, size(elem_lists(col) % x,1),           &
                                        size(elem_lists(col) % x,2),  dBasisdx_d, DetJ_d,     &
-                                       STIFF_d, FORCE_d, DiffCoeff_d, SourceCoeff_d, LtoGMap,&
-                                       nd, G_d, GI_d, dx_d, Metric_d, th_per_block)
+                                       STIFF_d, FORCE_d, DiffCoeff_d, SourceCoeff_d,         &
+                                       LtoGMap_d, nd, G_d, GI_d, dx_d, Metric_d, th_per_block)
 
      call hipCheck(hipFree(elemdofs_d))
      call hipCheck(hipFree(x_d))
@@ -927,7 +924,7 @@ global_stiff % values(:) = 0_dp
 ! call cray_acc_set_debug_global_level(0)
 
 #ifndef NOGPU
-  !$omp target exit data map(from:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
+  !!$omp target exit data map(from:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
 #endif
 
 CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
