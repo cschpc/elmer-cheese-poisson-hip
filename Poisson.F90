@@ -784,28 +784,11 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 
   CALL ResetTimer( Caller//'BulkAssembly' )
 #ifndef NOGPU
-
-!!$omp target enter data map(to: elem_lists, elem_lists(1:ncolours), refbasis, prefdBasisdx, trefbasis(:,:))
-!!$omp target enter data map(to: refbasis(1:ngp,1:nd), prefdBasisdx(1:nd,1:3,1:ngp)) 
-!!$omp target enter data map(to: refip%u(1:ngp), refip%v(1:ngp), refip%w(1:ngp), refip, refip%u, refip%v, refip%w, refip%s) 
-!!$omp target enter data map(to: refip%s(1:ngp))
-
   DO col=1,nColours
     active = size(elem_lists(col) % elemdofs, 1)
-
-!!$omp target enter data map(to: elem_lists(col) % elemdofs) 
-!!$omp target enter data map(to: elem_lists(col) % elemdofs(:,:)) 
-!!$omp target enter data map(to: elem_lists(col) % x(:, :)) 
-!!$omp target enter data map(to: elem_lists(col) % y(:, :))
-!!$omp target enter data map(to: elem_lists(col) % z(:, :))
-!!$omp target enter data map(to: elem_lists(col) % l2g(:,:))
   end do
-
 #endif
 
-#ifndef NOGPU
-  !!$omp target enter data map(to:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
-#endif
 
 global_stiff % values(:) = 0_dp
 
@@ -937,17 +920,21 @@ CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
   stop
 #endif
 
-#if 0
-  open(newunit=t, file="cols.csv")
-  write(t, '(I5)') solver % matrix % cols
+#if 1
+  open(newunit=t, file="linsys_cols.csv")
+  write(t, '(I5)') global_stiff % cols
   close(t)
 
-  open(newunit=t, file="rows.csv")
-  write(t, '(I5)') solver % matrix % rows
+  open(newunit=t, file="linsys_rows.csv")
+  write(t, '(I5)') global_stiff % rows
   close(t)
 
-  open(newunit=t, file="values.csv")
-  write(t, '(F9.4)') solver % matrix % values
+  open(newunit=t, file="linsys_values.csv")
+  write(t, '(F16.4)') global_stiff % values
+  close(t)
+
+  open(newunit=t, file="linsys_rhs.csv")
+  write(t, '(F16.4)') global_stiff % rhs
   close(t)
 #endif
 

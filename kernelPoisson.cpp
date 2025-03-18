@@ -148,6 +148,7 @@ __device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, double *x, doub
    }
    
 }
+
 __global__ void kernel_ModuleLocalMatrixVecSO(int active, int *elemdofs, double *x, double *y,
 		                              double *z, int dim, double *refbasis, 
 					      double *refdBasisdx, double *ips, int ngp, int *l2g, 

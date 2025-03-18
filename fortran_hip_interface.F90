@@ -10,7 +10,7 @@ module fortran_hip
                                               rows, rhs, sizexx1, sizexx2,  dBasisdx,     &
                                               DetJ, STIFF, FORCE, DiffCoeff, SourceCoeff, &
                                               LtoGMap, max_nd, G, GI, dx, Metric,         &
-                                              th_per_block) bind(c)
+                                              th_per_block) bind(c, name="launchModuleLocalMatrixVecSO")
 
          use hipfort_types
          use iso_c_binding
