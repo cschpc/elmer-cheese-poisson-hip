@@ -554,6 +554,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
   !use opena
 
   IMPLICIT NONE
+
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
@@ -784,11 +785,28 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 
   CALL ResetTimer( Caller//'BulkAssembly' )
 #ifndef NOGPU
+
+!!$omp target enter data map(to: elem_lists, elem_lists(1:ncolours), refbasis, prefdBasisdx, trefbasis(:,:))
+!!$omp target enter data map(to: refbasis(1:ngp,1:nd), prefdBasisdx(1:nd,1:3,1:ngp)) 
+!!$omp target enter data map(to: refip%u(1:ngp), refip%v(1:ngp), refip%w(1:ngp), refip, refip%u, refip%v, refip%w, refip%s) 
+!!$omp target enter data map(to: refip%s(1:ngp))
+
   DO col=1,nColours
     active = size(elem_lists(col) % elemdofs, 1)
+
+!!$omp target enter data map(to: elem_lists(col) % elemdofs) 
+!!$omp target enter data map(to: elem_lists(col) % elemdofs(:,:)) 
+!!$omp target enter data map(to: elem_lists(col) % x(:, :)) 
+!!$omp target enter data map(to: elem_lists(col) % y(:, :))
+!!$omp target enter data map(to: elem_lists(col) % z(:, :))
+!!$omp target enter data map(to: elem_lists(col) % l2g(:,:))
   end do
+
 #endif
 
+#ifndef NOGPU
+  !!$omp target enter data map(to:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
+#endif
 
 global_stiff % values(:) = 0_dp
 
@@ -854,7 +872,7 @@ global_stiff % values(:) = 0_dp
                                        rows_d, rhs_d, size(elem_lists(col) % x,1),           &
                                        size(elem_lists(col) % x,2),  dBasisdx_d, DetJ_d,     &
                                        STIFF_d, FORCE_d, DiffCoeff_d, SourceCoeff_d,         &
-                                       LtoGMap_d, nd, G_d, GI_d, dx_d, Metric_d, th_per_block)
+                                       LtoGMap_d, G_d, GI_d, dx_d, Metric_d, th_per_block)
 
      call hipCheck(hipFree(elemdofs_d))
      call hipCheck(hipFree(x_d))
@@ -920,21 +938,20 @@ CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
   stop
 #endif
 
-#if 1
-  open(newunit=t, file="linsys_cols.csv")
-  write(t, '(I5)') global_stiff % cols
+#if 0
+  open(newunit=t, file="cols.csv")
+  write(t, '(I5)') solver % matrix % cols
   close(t)
 
-  open(newunit=t, file="linsys_rows.csv")
-  write(t, '(I5)') global_stiff % rows
+  open(newunit=t, file="rows.csv")
+  write(t, '(I5)') solver % matrix % rows
   close(t)
 
-  open(newunit=t, file="linsys_values.csv")
-  write(t, '(F16.4)') global_stiff % values
+  open(newunit=t, file="values.csv")
+  write(t, '(F9.4)') solver % matrix % values
   close(t)
-
-  open(newunit=t, file="linsys_rhs.csv")
-  write(t, '(F16.4)') global_stiff % rhs
+  open(newunit=t, file="rhs.csv")
+  write(t, '(F9.4)') solver % matrix % rhs
   close(t)
 #endif
 

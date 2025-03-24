@@ -9,8 +9,9 @@ module fortran_hip
                                               refdBasisdx, ips, ngp, l2g, values, cols,   &
                                               rows, rhs, sizexx1, sizexx2,  dBasisdx,     &
                                               DetJ, STIFF, FORCE, DiffCoeff, SourceCoeff, &
-                                              LtoGMap, max_nd, G, GI, dx, Metric,         &
-                                              th_per_block) bind(c, name="launchModuleLocalMatrixVecSO")
+                                              LtoGMap, G, GI, dx, Metric, th_per_block)   &
+                                              bind(c, name="launchModuleLocalMatrixVecSO")
+
 
          use hipfort_types
          use iso_c_binding
@@ -20,7 +21,7 @@ module fortran_hip
          type(c_ptr),    value :: elemdofs, x, y, z, refbasis, refdBasisdx, ips, l2g, values
          type(c_ptr),    value :: cols, rows, rhs, dBasisdx, DetJ, STIFF, FORCE, DiffCoeff
          type(c_ptr),    value :: SourceCoeff, LtoGMap, G, GI, dx, Metric
-         integer(c_int), value :: active, dim, ngp, sizexx1, sizexx2, max_nd, th_per_block
+         integer(c_int), value :: active, dim, ngp, sizexx1, sizexx2, th_per_block
 
       end subroutine
    end interface
