@@ -27,7 +27,7 @@ Simulation
   Output Level = 20
 
   Simulation Timing = Logical True
-!  Post File = "case_fixedparams.vtu"
+  Post File = "case_#os.getenv("ELMER_MESH_NAME")#.vtu"
 End
 
 
