@@ -938,7 +938,7 @@ CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
   stop
 #endif
 
-#if 0
+#if 1
   open(newunit=t, file="cols.csv")
   write(t, '(I5)') solver % matrix % cols
   close(t)
@@ -948,10 +948,10 @@ CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
   close(t)
 
   open(newunit=t, file="values.csv")
-  write(t, '(F9.4)') solver % matrix % values
+  write(t, '(F16.9)') solver % matrix % values
   close(t)
   open(newunit=t, file="rhs.csv")
-  write(t, '(F9.4)') solver % matrix % rhs
+  write(t, '(F16.9)') solver % matrix % rhs
   close(t)
 #endif
 

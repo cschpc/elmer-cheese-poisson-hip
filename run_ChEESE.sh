@@ -45,12 +45,11 @@ export CRAY_ACC_USE_UNIFIED_MEM=0
 export HSA_XNACK=0
 #export CRAY_ACC_DEBUG=2
 #export LIBOMPTARGET_KERNEL_TRACE=2
+#export LIBOMPTARGET_INFO=0
 
 
-ml myelmer/cheese
+#ml myelmer/cheese
 ml 
-export LIBOMPTARGET_KERNEL_TRACE=2
-export LIBOMPTARGET_INFO=-1
 
 # this loads the spack-PrgEnv-gnu cray-libsci (BLAS, LAPACK) version
 ###### best to use this for audits! #########
@@ -63,19 +62,18 @@ export LIBOMPTARGET_INFO=-1
 #module load elmer/gcc-cray
 ###### make it so! ######### 
 
-#export CASE_SOLVER_MODULE=poisson_nothreadlimit.so
-#srun ElmerSolver case.sif
-
 export CASE_SOLVER_MODULE=poisson.so
 
 export ELMER_MESH_NAME=winkel_tiny
 echo %%%% MESH_NAME=$ELMER_MESH_NAME
 
 srun ElmerSolver case.sif
+mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
+mv values.csv values_${ELMER_MESH_NAME}.csv
 
 export ELMER_MESH_NAME=winkel_medium
 echo %%%% MESH_NAME=$ELMER_MESH_NAME
 
 srun ElmerSolver case.sif
-
-
+mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
+mv values.csv values_${ELMER_MESH_NAME}.csv
