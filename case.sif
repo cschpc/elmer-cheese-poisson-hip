@@ -8,7 +8,7 @@
 
 header
   CHECK KEYWORDS Warn
-  Mesh DB "." "winkel_tiny"
+  Mesh DB "." "#os.getenv("ELMER_MESH_NAME")#"
   Include Path ""
   Results Directory "results"
 End
@@ -57,8 +57,8 @@ Solver 1
 
   Variable = -dofs 1 "Temperature"
 
-  Procedure = "Poisson-x" "AdvDiffSolver"
-  !Procedure = #os.getenv("CASE_SOLVER_MODULE")# "AdvDiffSolver"
+  !Procedure = "Poisson-x" "AdvDiffSolver"
+  Procedure = #os.getenv("CASE_SOLVER_MODULE")# "AdvDiffSolver"
 
   Nonlinear System Max Iterations = 1
   Nonlinear System Consistent Norm = True
