@@ -603,7 +603,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 
 ! Variables for hip kernel
 
-  INTEGER :: th_per_block = 256
+  INTEGER :: th_per_block = 256, max_active
   integer(c_size_t) ::  size_device
   type(c_ptr) :: elemdofs_d = c_null_ptr, x_d = c_null_ptr, y_d = c_null_ptr, z_d = c_null_ptr
   type(c_ptr) :: trefbasis_d = c_null_ptr, prefdBasisdx_d = c_null_ptr, ips_d = c_null_ptr
@@ -791,8 +791,8 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 !!$omp target enter data map(to: refip%u(1:ngp), refip%v(1:ngp), refip%w(1:ngp), refip, refip%u, refip%v, refip%w, refip%s) 
 !!$omp target enter data map(to: refip%s(1:ngp))
 
-  DO col=1,nColours
-    active = size(elem_lists(col) % elemdofs, 1)
+!!  DO col=1,nColours
+!!    active = size(elem_lists(col) % elemdofs, 1)
 
 !!$omp target enter data map(to: elem_lists(col) % elemdofs) 
 !!$omp target enter data map(to: elem_lists(col) % elemdofs(:,:)) 
@@ -800,14 +800,17 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
 !!$omp target enter data map(to: elem_lists(col) % y(:, :))
 !!$omp target enter data map(to: elem_lists(col) % z(:, :))
 !!$omp target enter data map(to: elem_lists(col) % l2g(:,:))
-  end do
+!!  end do
 
 #endif
 
 #ifndef NOGPU
   !!$omp target enter data map(to:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
 #endif
-
+  max_active = 0
+  DO col=1,nColours
+    max_active = max(max_active, size(elem_lists(col) % elemdofs, 1))
+  enddo
 global_stiff % values(:) = 0_dp
 
   size_device = nd*ngp*sizeof(trefBasis(1,1))
@@ -831,19 +834,19 @@ global_stiff % values(:) = 0_dp
   size_device = size(global_stiff % rhs)*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(rhs_d, size_device))
   call hipCheck(hipMemcpy(rhs_d, c_loc(global_stiff % rhs), size_device, hipMemcpyHostToDevice))
-  size_device = ngp*nd*dim*th_per_block*sizeof(global_stiff % rhs(1))
+  size_device = ngp*nd*dim*max_active*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(dBasisdx_d, size_device))
-  size_device = ngp*th_per_block*sizeof(global_stiff % rhs(1))
+  size_device = ngp*max_active*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(DetJ_d, size_device))
-  size_device = nd*nd*th_per_block*sizeof(global_stiff % rhs(1))
+  size_device = nd*nd*max_active*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(STIFF_D, size_device))
-  size_device = nd*th_per_block*sizeof(global_stiff % rhs(1))
+  size_device = nd*max_active*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(FORCE_d, size_device))
-  size_device = ngp*th_per_block*sizeof(global_stiff % rhs(1))
+  size_device = ngp*max_active*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(DiffCoeff_d, size_device))
-  size_device = ngp*th_per_block*sizeof(global_stiff % rhs(1))
+  size_device = ngp*max_active*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(SourceCoeff_d, size_device))
-  size_device = dim*dim*th_per_block*sizeof(global_stiff % rhs(1))
+  size_device = dim*dim*max_active*sizeof(global_stiff % rhs(1))
   call hipCheck(hipMalloc(LtoGMap_d, size_device))
   call hipCheck(hipMalloc(G_d, size_device))
   call hipCheck(hipMalloc(GI_d, size_device))
@@ -872,7 +875,8 @@ global_stiff % values(:) = 0_dp
                                        rows_d, rhs_d, size(elem_lists(col) % x,1),           &
                                        size(elem_lists(col) % x,2),  dBasisdx_d, DetJ_d,     &
                                        STIFF_d, FORCE_d, DiffCoeff_d, SourceCoeff_d,         &
-                                       LtoGMap_d, G_d, GI_d, dx_d, Metric_d, th_per_block)
+                                       LtoGMap_d, G_d, GI_d, dx_d, Metric_d, th_per_block,   & 
+                                       max_active)
 
      call hipCheck(hipFree(elemdofs_d))
      call hipCheck(hipFree(x_d))
@@ -948,10 +952,10 @@ CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
   close(t)
 
   open(newunit=t, file="values.csv")
-  write(t, '(F16.9)') solver % matrix % values
+  write(t, '(F16.11)') solver % matrix % values
   close(t)
   open(newunit=t, file="rhs.csv")
-  write(t, '(F16.9)') solver % matrix % rhs
+  write(t, '(F16.11)') solver % matrix % rhs
   close(t)
 #endif
 

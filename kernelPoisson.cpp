@@ -18,17 +18,13 @@ inline void gpuAssert(hipError_t code, const char *file, int line, bool abort=tr
 
 __device__ int gpumerge(int a, int b, bool test){
 
-   if (test) 
-      return a;
-   else
-      return b;
-
+   return (test)? a: b;
 }
 
-__device__ void gpuInvertMatrix3x3(double *G, double *GI, double detG, int thread){
+__device__ void gpuInvertMatrix3x3(double *G, double *GI, double detG, int elem){
 
    double s = 1.0/detG;
-   int start = 9*thread;
+   int start = 9*elem;
 
      GI[start] =  s * (G[start+4]*G[start+8] - G[start+5]*G[start+7]);
    GI[start+1] = -s * (G[start+1]*G[start+8] - G[start+2]*G[start+7]);
@@ -46,11 +42,11 @@ __device__ void gpuInvertMatrix3x3(double *G, double *GI, double detG, int threa
 
 __device__ double gpumyElementMetric(int nd, double *xx, double *yy, double *zz,
 	                  	     int dim, double *dLBasisdx, double *LtoGMap, 
-				     int elem, int sizexx1, int sizexx2, int thread, 
-				     int l, double *G, double *GI, double *dx, 
+				     int elem, int sizexx1, int sizexx2, int l, 
+				     double *G, double *GI, double *dx, 
 				     double *Metric) {
 
-   int start = 9*thread;
+   int start = 9*elem;
    int n = (sizexx2 < nd) ? sizexx2 : nd;
    
    for (int i=0; i<dim; i++) {
@@ -78,7 +74,7 @@ __device__ double gpumyElementMetric(int nd, double *xx, double *yy, double *zz,
 	         G[start+3] * ( G[start+7]*G[start+2] - G[start+1]*G[start+8] ) + 
                  G[start+6] * ( G[start+1]*G[start+5] - G[start+4]*G[start+2] );
 
-   gpuInvertMatrix3x3(G, GI, DetG, thread);
+   gpuInvertMatrix3x3(G, GI, DetG, elem);
    for (int i=0; i<9; i++) 
       Metric[start+i] = GI[start+i];
    DetG = sqrt(DetG);
@@ -103,52 +99,52 @@ __device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, double *x, doub
 					  int *rows, double *rhs, int sizexx1, int sizexx2, 
 					  double *dBasisdx, double *DetJ, double *STIFF, 
 					  double *FORCE, double *DiffCoeff, 
-					  double *SourceCoeff, double *LtoGMap, int thread, 
+					  double *SourceCoeff, double *LtoGMap, int max_active, 
 					  double *G, double *GI, double *dx, double *Metric) {
 
-   int size = dim*ngp*nd;	
+   int size = dim*ngp*nd;
    for (int i=0; i<size; i++) 
-      dBasisdx[thread*size+i] = 0.0;
+      dBasisdx[elem*size+i] = 0.0;
 
    for (int l=0; l<ngp; l++) {
-      DetJ[thread*ngp+l] = gpumyElementMetric(nd, x, y, z, dim, refdBasisdx, LtoGMap, elem, 
-		                              sizexx1, sizexx2, thread, l, G, GI, dx, Metric);
+      DetJ[elem*ngp+l] = gpumyElementMetric(nd, x, y, z, dim, refdBasisdx, LtoGMap, elem, 
+		                                  sizexx1, sizexx2, l, G, GI, dx, Metric);
       for (int m=0; m<nd; m++)
          for (int k=0; k<dim; k++)
             for (int j=0; j<dim; j++)
-	       dBasisdx[thread*size+nd*ngp*j+ngp*m+l] += refdBasisdx[dim*nd*l+nd*k+m]*
-		                                         LtoGMap[thread*dim*dim+dim*k+j];
+	       dBasisdx[elem*size+nd*ngp*j+ngp*m+l] += refdBasisdx[dim*nd*l+nd*k+m]*
+		                                       LtoGMap[elem*dim*dim+dim*k+j];
    }
 
    for (int i=0; i<nd*nd; i++) 
-      STIFF[thread*nd*nd+i] = 0.0;
+      STIFF[elem*nd*nd+i] = 0.0;
    for (int i=0; i<ngp; i++) 
-      DiffCoeff[thread*ngp+i] = 1.0;
+      DiffCoeff[elem*ngp+i] = 1.0;
    for (int j=0; j<nd; j++)
       for (int i=0; i<nd; i++)
          for (int k=0; k<dim; k++)
             for (int l=0; l<ngp; l++)
-	       STIFF[thread*nd*nd+j*nd+i] += dBasisdx[thread*size+nd*ngp*k+ngp*i+l]*
-		                             dBasisdx[thread*size+nd*ngp*k+ngp*j+l]*
-					     DiffCoeff[thread*ngp+l]*DetJ[thread*ngp+l]*ips[l];
+	       STIFF[elem*nd*nd+j*nd+i] += dBasisdx[elem*size+nd*ngp*k+ngp*i+l]*
+		                           dBasisdx[elem*size+nd*ngp*k+ngp*j+l]*
+					   DiffCoeff[elem*ngp+l]*DetJ[elem*ngp+l]*ips[l];
 
    for (int i=0; i<ngp; i++) 
-      SourceCoeff[thread*ngp+i] = 1.0;
+      SourceCoeff[elem*ngp+i] = 1.0;
    for (int i=0; i<nd; i++) 
-      FORCE[thread*nd+i] = 0.0;
+      FORCE[elem*nd+i] = 0.0;
    for (int i=0; i<nd; i++) 
       for (int l=0; l<ngp; l++)
-         FORCE[thread*nd+i] += refbasis[i*nd+l]*SourceCoeff[thread*ngp+l]*
-		               DetJ[thread*ngp+l]*ips[l];
+         FORCE[elem*nd+i] += refbasis[i*nd+l]*SourceCoeff[elem*ngp+l]*
+		             DetJ[elem*ngp+l]*ips[l];
 
    for (int i=0; i<nd; i++) {
       for (int j=0; j<nd; j++) {
         int colind = 0;
 	for (int k=rows[l2g[i*sizexx1+elem]-1]; k<rows[l2g[i*sizexx1+elem]]; k++)
 	  colind += gpumerge(k, 0, (l2g[j*sizexx1+elem] == cols[k-1]));
-	atomicAdd(&values[colind-1],STIFF[thread*nd*nd+j*nd+i]);
+	values[colind-1] += STIFF[elem*nd*nd+j*nd+i];
       }
-      atomicAdd(&rhs[l2g[i*sizexx1+elem]-1],FORCE[thread*nd+i]);
+      rhs[l2g[i*sizexx1+elem]-1] += FORCE[elem*nd+i];
    }
 }
 __global__ void kernel_ModuleLocalMatrixVecSO(int active, int *elemdofs, double *x, double *y,
@@ -159,17 +155,17 @@ __global__ void kernel_ModuleLocalMatrixVecSO(int active, int *elemdofs, double 
 					      double *DetJ, double *STIFF, double *FORCE,
                                               double *DiffCoeff, double *SourceCoeff, 
 					      double *LtoGMap, double *G, double *GI, double *dx, 
-					      double *Metric) {
+					      double *Metric, int max_active) {
    
-   int thread = threadIdx.x;
-   int elem = blockIdx.x*blockDim.x + thread;
-   int n = elemdofs[elem];
-   int nb = elemdofs[2*active+elem];
-   int nd = nb + elemdofs[active+elem];
-   if (elem < active) 
+   int elem = blockIdx.x*blockDim.x + threadIdx.x;
+   if (elem < active) {
+      int n = elemdofs[elem];
+      int nb = elemdofs[2*active+elem];
+      int nd = nb + elemdofs[active+elem];
       gpuModuleLocalMatrixVecSO(n, nd, nb, x, y, z, dim, refbasis, refdBasisdx, ips, ngp, elem, l2g, 
 		                values, cols, rows, rhs, sizexx1, sizexx2, dBasisdx, DetJ, STIFF, 
-				FORCE, DiffCoeff, SourceCoeff, LtoGMap, thread, G, GI, dx, Metric);
+				FORCE, DiffCoeff, SourceCoeff, LtoGMap, max_active, G, GI, dx, Metric);
+   }
 
 }
 extern "C" {
@@ -178,7 +174,8 @@ extern "C" {
 				     double *values, int *cols, int *rows, double *rhs, int sizexx1, 
 				     int sizexx2, double *dBasisdx, double *DetJ, double *STIFF, 
 				     double *FORCE, double *DiffCoeff, double *SourceCoeff, double *LtoGMap,
-				     double *G, double *GI, double *dx, double *Metric, int thread_per_block) {
+				     double *G, double *GI, double *dx, double *Metric, int thread_per_block, 
+				     int max_active) {
       
       dim3 nblocks=dim3((active+thread_per_block)/thread_per_block,1,1);
       dim3 nthreads=dim3(thread_per_block,1,1);
@@ -187,6 +184,6 @@ extern "C" {
 		                                               refdBasisdx, ips, ngp, l2g, values, cols, rows, 
 							       rhs, sizexx1, sizexx2, dBasisdx, DetJ, STIFF, 
 							       FORCE, DiffCoeff, SourceCoeff, LtoGMap, G, GI, 
-							       dx, Metric);
+							       dx, Metric, max_active);
    }
 }
