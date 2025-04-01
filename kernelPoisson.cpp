@@ -21,7 +21,7 @@ __device__ int gpumerge(int a, int b, bool test){
    return (test)? a: b;
 }
 
-__device__ void gpuInvertMatrix3x3(double *G, double *GI, double detG, int elem){
+__device__ void gpuInvertMatrix3x3(double * __restrict__ G, double * __restrict__ GI, double detG, int elem){
 
    double s = 1.0/detG;
    int start = 9*elem;
@@ -40,11 +40,11 @@ __device__ void gpuInvertMatrix3x3(double *G, double *GI, double detG, int elem)
 
 }
 
-__device__ double gpumyElementMetric(int nd, double *xx, double *yy, double *zz,
-	                  	     int dim, double *dLBasisdx, double *LtoGMap, 
+__device__ double gpumyElementMetric(int nd, double * __restrict__ xx, double * __restrict__ yy, double * __restrict__ zz,
+	                  	     int dim, double * __restrict__ dLBasisdx, double * __restrict__ LtoGMap, 
 				     int elem, int sizexx1, int sizexx2, int l, 
-				     double *G, double *GI, double *dx, 
-				     double *Metric) {
+				     double * __restrict__ G, double * __restrict__ GI, double * __restrict__ dx, 
+				     double * __restrict__ Metric) {
 
    int start = 9*elem;
    int n = (sizexx2 < nd) ? sizexx2 : nd;
@@ -92,15 +92,15 @@ __device__ double gpumyElementMetric(int nd, double *xx, double *yy, double *zz,
 
 }
 
-__device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, double *x, double *y, 
-		                          double *z, int dim, double *refbasis, 
-					  double *refdBasisdx, double *ips, int ngp, 
-					  int elem, int *l2g, double *values, int *cols, 
-					  int *rows, double *rhs, int sizexx1, int sizexx2, 
-					  double *dBasisdx, double *DetJ, double *STIFF, 
-					  double *FORCE, double *DiffCoeff, 
-					  double *SourceCoeff, double *LtoGMap, int max_active, 
-					  double *G, double *GI, double *dx, double *Metric) {
+__device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, double * __restrict__ x, double * __restrict__ y, 
+		                          double * __restrict__ z, int dim, double * __restrict__ refbasis, 
+					  double * __restrict__ refdBasisdx, double * __restrict__ ips, int ngp, 
+					  int elem, int * __restrict__ l2g, double * __restrict__ values, int * __restrict__ cols, 
+					  int * __restrict__ rows, double * __restrict__ rhs, int sizexx1, int sizexx2, 
+					  double * __restrict__ dBasisdx, double * __restrict__ DetJ, double * __restrict__ STIFF, 
+					  double * __restrict__ FORCE, double * __restrict__ DiffCoeff, 
+					  double * __restrict__ SourceCoeff, double * __restrict__ LtoGMap, int max_active, 
+					  double * __restrict__ G, double * __restrict__ GI, double * __restrict__ dx, double * __restrict__ Metric) {
 
    int size = dim*ngp*nd;
    for (int i=0; i<size; i++) 
@@ -147,15 +147,15 @@ __device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, double *x, doub
       rhs[l2g[i*sizexx1+elem]-1] += FORCE[elem*nd+i];
    }
 }
-__global__ void kernel_ModuleLocalMatrixVecSO(int active, int *elemdofs, double *x, double *y,
-		                              double *z, int dim, double *refbasis, 
-					      double *refdBasisdx, double *ips, int ngp, int *l2g, 
-					      double *values, int *cols, int *rows, double *rhs, 
-					      int sizexx1, int sizexx2, double *dBasisdx, 
-					      double *DetJ, double *STIFF, double *FORCE,
-                                              double *DiffCoeff, double *SourceCoeff, 
-					      double *LtoGMap, double *G, double *GI, double *dx, 
-					      double *Metric, int max_active) {
+__global__ void kernel_ModuleLocalMatrixVecSO(int active, int * __restrict__ elemdofs, double * __restrict__ x, double * __restrict__ y,
+		                              double * __restrict__ z, int dim, double * __restrict__ refbasis, 
+					      double * __restrict__ refdBasisdx, double * __restrict__ ips, int ngp, int * __restrict__ l2g, 
+					      double * __restrict__ values, int * __restrict__ cols, int * __restrict__ rows, double * __restrict__ rhs, 
+					      int sizexx1, int sizexx2, double * __restrict__ dBasisdx, 
+					      double * __restrict__ DetJ, double * __restrict__ STIFF, double * __restrict__ FORCE,
+                                              double * __restrict__ DiffCoeff, double * __restrict__ SourceCoeff, 
+					      double * __restrict__ LtoGMap, double * __restrict__ G, double * __restrict__ GI, double * __restrict__ dx, 
+					      double * __restrict__ Metric, int max_active) {
    
    int elem = blockIdx.x*blockDim.x + threadIdx.x;
    if (elem < active) {
