@@ -570,7 +570,8 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
   INTEGER :: ngp, i, dim, coorddim, k
   LOGICAL :: Found, VecAsm, InitHandles
   integer, allocatable :: n_active_in_col(:)
-  real(KIND=dp), allocatable :: color_timing(:)
+  real(KIND=dp), allocatable :: color_timing(:), color_timing_nomem(:)
+  REAL(KIND=dp) :: start_time, end_time, start_time_nm, end_time_nm
   type(nodes_t) :: Nodes
   type(Matrix_t), POINTER :: global_stiff
   integer, allocatable :: indexes(:)
@@ -672,7 +673,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
   allocate(elem_lists(nColours)) ! TODO: deallocate too
   allocate(n_active_in_col(nColours)) ! TODO: deallocate too
 
-  allocate(color_timing(nColours)) ! TODO: deallocate too
+  allocate(color_timing(nColours), color_timing_nomem(nColours)) ! TODO: deallocate too
 
   do col = 1, nColours
     active = GetNOFActive(Solver)
@@ -855,6 +856,7 @@ global_stiff % values(:) = 0_dp
 
   DO col=1,nColours
 
+    start_time = CPUTime()
     active = size(elem_lists(col) % elemdofs, 1)
     size_device = dim*active*sizeof(elem_lists(col) % elemdofs(1,1))
     call hipCheck(hipMalloc(elemdofs_d, size_device))
@@ -870,14 +872,16 @@ global_stiff % values(:) = 0_dp
     call hipCheck(hipMalloc(l2g_d, size_device))
     call hipCheck(hipMemcpy(l2g_d, c_loc(elem_lists(col) % l2g), size_device, hipMemcpyHostToDevice))
 
-    Call  launchModuleLocalMatrixVecSO(active, elemdofs_d, x_d, y_d, z_d, dim, trefbasis_d,  &
+    start_time_nm = CPUTime()
+    Call launchModuleLocalMatrixVecSO(active, elemdofs_d, x_d, y_d, z_d, dim, trefbasis_d,  &
                                        prefdBasisdx_d, ips_d, ngp, l2g_d, values_d, cols_d,  &
                                        rows_d, rhs_d, size(elem_lists(col) % x,1),           &
                                        size(elem_lists(col) % x,2),  dBasisdx_d, DetJ_d,     &
                                        STIFF_d, FORCE_d, DiffCoeff_d, SourceCoeff_d,         &
                                        LtoGMap_d, G_d, GI_d, dx_d, Metric_d, th_per_block,   & 
                                        max_active)
-
+     end_time_nm = CPUTime()
+     color_timing_nomem(col) = end_time_nm-start_time_nm
      call hipCheck(hipFree(elemdofs_d))
      call hipCheck(hipFree(x_d))
      call hipCheck(hipFree(y_d))
@@ -897,6 +901,8 @@ global_stiff % values(:) = 0_dp
 !    write (*, '(A, I4, A, F8.6, I9, E12.3)') 'Color ', col, ' time, #elems, quotient: ', &
 !    color_timing(col), size(elem_lists(col) % elemdofs, 1), color_timing(col)/size(elem_lists(col) % elemdofs, 1)
 
+     end_time = CPUTime()
+     color_timing(col) = end_time-start_time
   END DO
 
   size_device = size(global_stiff % values)*sizeof(global_stiff % values(1))
@@ -931,6 +937,12 @@ global_stiff % values(:) = 0_dp
 #ifndef NOGPU
   !!$omp target exit data map(from:global_stiff % values(:), global_stiff % rows(:), global_stiff % cols(:), global_stiff % rhs(:))
 #endif
+
+do col=1,nColours
+  write (*, '(A, I4, A, F12.2, I9, F12.2, F12.2)') 'Color ', col, ' time (ns), #elems, ns/elem, ns/elem (nomem): ', &
+    1e9*color_timing(col), size(elem_lists(col) % elemdofs, 1), color_timing(col)*1e9/size(elem_lists(col) % elemdofs, 1) , & 
+  color_timing_nomem(col)*1e9/size(elem_lists(col) % elemdofs, 1) 
+end do
 
 CALL CheckTimer(Caller//'BulkAssembly',Delete=.TRUE.)
   !stop

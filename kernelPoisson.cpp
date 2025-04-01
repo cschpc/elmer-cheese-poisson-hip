@@ -185,5 +185,6 @@ extern "C" {
 							       rhs, sizexx1, sizexx2, dBasisdx, DetJ, STIFF, 
 							       FORCE, DiffCoeff, SourceCoeff, LtoGMap, G, GI, 
 							       dx, Metric, max_active);
+      hipStreamSynchronize(0);
    }
 }
