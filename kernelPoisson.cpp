@@ -21,7 +21,7 @@ __device__ int gpumerge(int a, int b, bool test){
    return (test)? a: b;
 }
 
-__device__ void gpuInvertMatrix3x3(double *G, double *GI, double detG, int elem){
+__device__ void gpuInvertMatrix3x3(__restrict__ double *G, __restrict__ double *GI, double detG, int elem){
 
    double s = 1.0/detG;
    int start = 9*elem;
@@ -40,11 +40,11 @@ __device__ void gpuInvertMatrix3x3(double *G, double *GI, double detG, int elem)
 
 }
 
-__device__ double gpumyElementMetric(int nd, double *xx, double *yy, double *zz,
-	                  	     int dim, double *dLBasisdx, double *LtoGMap, 
+__device__ double gpumyElementMetric(int nd, __restrict__ double *xx, __restrict__ double *yy, __restrict__ double *zz,
+	                  	     int dim, __restrict__ double *dLBasisdx, __restrict__ double *LtoGMap, 
 				     int elem, int sizexx1, int sizexx2, int l, 
-				     double *G, double *GI, double *dx, 
-				     double *Metric) {
+				     __restrict__ double *G, __restrict__ double *GI, __restrict__ double *dx, 
+				     __restrict__ double *Metric) {
 
    int start = 9*elem;
    int n = (sizexx2 < nd) ? sizexx2 : nd;
@@ -92,15 +92,15 @@ __device__ double gpumyElementMetric(int nd, double *xx, double *yy, double *zz,
 
 }
 
-__device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, double *x, double *y, 
-		                          double *z, int dim, double *refbasis, 
-					  double *refdBasisdx, double *ips, int ngp, 
-					  int elem, int *l2g, double *values, int *cols, 
-					  int *rows, double *rhs, int sizexx1, int sizexx2, 
-					  double *dBasisdx, double *DetJ, double *STIFF, 
-					  double *FORCE, double *DiffCoeff, 
-					  double *SourceCoeff, double *LtoGMap, int max_active, 
-					  double *G, double *GI, double *dx, double *Metric) {
+__device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, __restrict__ double *x, __restrict__ double *y, 
+		                          __restrict__ double *z, int dim, __restrict__ double *refbasis, 
+					  __restrict__ double *refdBasisdx, __restrict__ double *ips, int ngp, 
+					  int elem, int *l2g, __restrict__ double *values, int *cols, 
+					  int *rows, __restrict__ double *rhs, int sizexx1, int sizexx2, 
+					  __restrict__ double *dBasisdx, __restrict__ double *DetJ, __restrict__ double *STIFF, 
+					  __restrict__ double *FORCE, __restrict__ double *DiffCoeff, 
+					  __restrict__ double *SourceCoeff, __restrict__ double *LtoGMap, int max_active, 
+					  __restrict__ double *G, __restrict__ double *GI, __restrict__ double *dx, __restrict__ double *Metric) {
 
    int size = dim*ngp*nd;
    for (int i=0; i<size; i++) 
@@ -147,15 +147,15 @@ __device__ void gpuModuleLocalMatrixVecSO(int n, int nd, int nb, double *x, doub
       rhs[l2g[i*sizexx1+elem]-1] += FORCE[elem*nd+i];
    }
 }
-__global__ void kernel_ModuleLocalMatrixVecSO(int active, int *elemdofs, double *x, double *y,
-		                              double *z, int dim, double *refbasis, 
-					      double *refdBasisdx, double *ips, int ngp, int *l2g, 
-					      double *values, int *cols, int *rows, double *rhs, 
-					      int sizexx1, int sizexx2, double *dBasisdx, 
-					      double *DetJ, double *STIFF, double *FORCE,
-                                              double *DiffCoeff, double *SourceCoeff, 
-					      double *LtoGMap, double *G, double *GI, double *dx, 
-					      double *Metric, int max_active) {
+__global__ void kernel_ModuleLocalMatrixVecSO(int active, int *elemdofs, __restrict__ double *x, __restrict__ double *y,
+		                              __restrict__ double *z, int dim, __restrict__ double *refbasis, 
+					      __restrict__ double *refdBasisdx, __restrict__ double *ips, int ngp, int *l2g, 
+					      __restrict__ double *values, int *cols, int *rows, __restrict__ double *rhs, 
+					      int sizexx1, int sizexx2, __restrict__ double *dBasisdx, 
+					      __restrict__ double *DetJ, __restrict__ double *STIFF, __restrict__ double *FORCE,
+                                              __restrict__ double *DiffCoeff, __restrict__ double *SourceCoeff, 
+					      __restrict__ double *LtoGMap, __restrict__ double *G, __restrict__ double *GI, __restrict__ double *dx, 
+					      __restrict__ double *Metric, int max_active) {
    
    int elem = blockIdx.x*blockDim.x + threadIdx.x;
    if (elem < active) {
