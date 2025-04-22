@@ -67,22 +67,22 @@ export CASE_SOLVER_MODULE=poisson.so
 export ELMER_MESH_NAME=winkel_tiny
 echo %%%% MESH_NAME=$ELMER_MESH_NAME
 
-# srun rocprof --basenames on --timestamp on -i metrics.txt -o ${ELMER_MESH_NAME}.csv ElmerSolver case.sif
-ElmerSolver case.sif
-mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
-mv values.csv values_${ELMER_MESH_NAME}.csv
-
-export ELMER_MESH_NAME=winkel_medium
-echo %%%% MESH_NAME=$ELMER_MESH_NAME
-
 #srun rocprof --basenames on --timestamp on -i metrics.txt -o ${ELMER_MESH_NAME}.csv ElmerSolver case.sif
-ElmerSolver case.sif
-mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
-mv values.csv values_${ELMER_MESH_NAME}.csv
+#ElmerSolver case.sif
+#mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
+#mv values.csv values_${ELMER_MESH_NAME}.csv
+
+#export ELMER_MESH_NAME=winkel_medium
+#echo %%%% MESH_NAME=$ELMER_MESH_NAME
+
+#srun rocprof --basenames on --timestamp on -i metrics.txt -o ${ELMER_MESH_NAME}.csv ElmerSolver case.#sif
+#ElmerSolver case.sif
+#mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
+#mv values.csv values_${ELMER_MESH_NAME}.csv
 
 export ELMER_MESH_NAME=winkel_large
 echo %%%% MESH_NAME=$ELMER_MESH_NAME
 #srun rocprof --basenames on --timestamp on -i metrics.txt -o ${ELMER_MESH_NAME}.csv ElmerSolver case.sif
-ElmerSolver case.sif
-mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
-mv values.csv values_${ELMER_MESH_NAME}.csv
+srun ElmerSolver case.sif
+#mv rhs.csv rhs_${ELMER_MESH_NAME}.csv
+#mv values.csv values_${ELMER_MESH_NAME}.csv

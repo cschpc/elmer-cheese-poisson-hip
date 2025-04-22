@@ -170,9 +170,13 @@ extern "C" {
       
       dim3 nblocks=dim3((active+thread_per_block)/thread_per_block,1,1);
       dim3 nthreads=dim3(thread_per_block,1,1);
+      double y_local;
 
       kernel_ModuleLocalMatrixVecSO<<<nblocks,nthreads,0,0>>> (active, elemdofs, x, y, z, dim, refbasis, refdBasisdx, ips, ngp, l2g, 
 		                                               values, cols, rows, rhs, sizexx1, sizexx2, dBasisdx, DetJ, STIFF, 
 							       FORCE, DiffCoeff, SourceCoeff);
+      hipMemcpy(&y_local, y, sizeof(double), hipMemcpyDefault);
+//hipStreamSynchronize(0);
+//hipDeviceSynchronize();
    }
 }

@@ -36,16 +36,21 @@ SUBROUTINE ModuleLocalMatrixVecSO( n, nd, nb, x, y, z, dim, refbasis, refdBasisd
     !USE LinearForms
     use types, only: dp
     USE Integration, only: GaussIntegrationPoints_t
+    use SParIterGlobals
     !use iso_c_binding
 #ifdef ASSEMBLE
     use DefUtils ! TODO: defaultupdateequations is here but defutils may not be used due to threadprivate module variables if
                  ! declare target is set
 #endif
-    IMPLICIT NONE
 ! #ifndef NOGPU
 !!$omp declare target
 ! #endif
 
+    use hipfort
+    use hipfort_check
+    use hipfort_types
+
+    IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: n, nd, nb, l2g(:,:)
     real(kind=dp), intent(in) :: x(:,:), y(:,:), z(:,:)
@@ -632,6 +637,14 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
   end if
 
 
+  print *, "MyPE: ", ParEnv % MyPE
+
+  call hipCheck(hipGetDevice(i))
+  print *, 'device: ', i
+  !call hipCheck(hipSetDevice(ParEnv % MyPE))
+  !print *, "MyPE: ", ParEnv % MyPE
+  !call hipCheck(hipSetDevice(ParEnv % MyPE))
+  !call hipCheck(hipSetDevice(0))
 
   !!$ nthr = omp_get_max_threads()
 
@@ -873,7 +886,7 @@ SUBROUTINE AdvDiffSolver( Model,Solver,dt,TransientSimulation )
                                        size(elem_lists(col) % x,2),  dBasisdx_d, DetJ_d,     &
                                        STIFF_d, FORCE_d, DiffCoeff_d, SourceCoeff_d,         &
                                        th_per_block)
-    call hipCheck(hipDeviceSynchronize())
+    !call hipCheck(hipDeviceSynchronize())
     color_timing(col) = CPUTime() - timing
 
     call hipCheck(hipFree(elemdofs_d))
